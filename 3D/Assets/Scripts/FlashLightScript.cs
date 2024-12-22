@@ -1,55 +1,79 @@
-﻿using System;
 using UnityEngine;
 
 public class FlashLightScript : MonoBehaviour
 {
-    private Transform _parentTransform;
-    private Transform _flashLightTransform;
-    private Light _light;
-    float _charge;
-    private float _workTime = 5;
-    
+    private Transform parentTransform;
+    private Light lightSource;
+    private float charge;
+    private float worktime = 60.0f;
+    private AudioSource midSound;
+    private AudioSource lastSound;
+
+    public float chargeLevel => charge;
+
     void Start()
     {
-        _parentTransform = transform.parent;
-
-        if (_parentTransform == null)
+        parentTransform = transform.parent;
+        if(parentTransform == null )
         {
-            Debug.LogError("FlashLightScript: Parent transform not found");
+            Debug.LogError("FlashLightScript: parentTransform not found");
         }
-
-        _light = GetComponent<Light>();
-        _charge = 1;
+        lightSource = GetComponent<Light>();
+        charge = 1.0f;
+        AudioSource[] audioSources = GetComponents<AudioSource>();
+        midSound = audioSources[0];
+        lastSound = audioSources[1];
+        //GameState.Subscribe(OnBatteryEvent, "Battery");
     }
 
-    private void Update()
+    void Update()
     {
-        if (!_parentTransform)
-        {
-            return;
-        }
+        if (parentTransform == null) return;
 
-        if (_charge > 0 && !GameState.isDay)
+        if (charge > 0 && !GameState.isDay)
         {
-            _light.intensity = _charge;
-            _charge -= Time.deltaTime / _workTime;
+            lightSource.intensity = chargeLevel;
+            charge -= Time.deltaTime / worktime;
+            if(charge <= 0.5f && charge >= 0.49f)
+            {
+                midSound.Play();
+                lightSource.intensity = 0;
+                
+            }
+            if (charge <= 0.10f && charge >= 0.09f)
+            {
+                lastSound.Play();
+            }
         }
 
         if (GameState.isFpv)
         {
-            _flashLightTransform.forward = Camera.main.transform.forward;
+            transform.forward = Camera.main.transform.forward;
         }
         else
         {
-            Vector3 F = Camera.main.transform.forward;
-            F.y = 0;
-
-            if (F == Vector3.zero)
-            {
-                F = Camera.main.transform.up;
-            }
-
-            _flashLightTransform.forward = F;
+            Vector3 f = Camera.main.transform.forward;
+            f.y = 0.0f;
+            if(f == Vector3.zero) f = Camera.main.transform.up; 
+            transform.forward = f.normalized;
         }
+    }
+
+    //private void OnBatteryEvent(string eventName, object data)
+    //{
+    //    if(data is GameEvents.MessageEvent e)
+    //    {
+    //        charge += (float)e.data;
+    //    }
+    //}
+    
+    //private void OnDestroy(string eventName, object data)
+    //{
+    //    GameState.UnSubscribe(OnBatteryEvent, "Battery");
+    //}
+
+    public void RefillCharge(float chargeValue)
+    {
+        charge = chargeValue;
     }
 }

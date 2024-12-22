@@ -3,42 +3,85 @@ using UnityEngine;
 
 public class LightScript : MonoBehaviour
 {
-    private Light[] _dayLights;
-    private Light[] _nightLights;
+    private Light[] daylights;
+    private Light[] nightlights;
+
+    private AudioSource daySound;
+    private AudioSource nightSound;
+    private AudioSource musicBack;
 
     void Start()
     {
-        _dayLights = GameObject
+        daylights = GameObject
             .FindGameObjectsWithTag("DayLight")
-            .Select(G => G.GetComponent<Light>())
+            .Select(g=> g.GetComponent<Light>())
             .ToArray();
-
-        _nightLights = GameObject
+        nightlights = GameObject
             .FindGameObjectsWithTag("NightLight")
-            .Select(G => G.GetComponent<Light>())
+            .Select(g => g.GetComponent<Light>())
             .ToArray();
 
+        AudioSource[] audioSources = GetComponents<AudioSource>();
+        daySound = audioSources[0];
+        nightSound = audioSources[1];
+        musicBack = audioSources[2];
+        
+        GameState.Subscribe(OnAmbientVolumeTrigger, "AmbientVolume");
+        GameState.Subscribe(OnMusicVolumeTrigger, "MusicVolume");
         SwitchLight();
     }
 
     void Update()
     {
-        if (Input.GetKeyUp(KeyCode.N))
+        if (Input.GetKeyUp(KeyCode.N)) 
         {
             SwitchLight();
+        }
+    }
+
+    private void OnAmbientVolumeTrigger(string eventName, object data)
+    {
+        if(eventName == "AmbientVolume")
+        {
+            daySound.volume = (float)data;
+            nightSound.volume = (float)data;
+        }
+    }
+
+    private void OnMusicVolumeTrigger(string eventName, object data)
+    {
+        if (eventName == "MusicVolume")
+        {
+            musicBack.volume = (float)data;
         }
     }
 
     private void SwitchLight()
     {
         GameState.isDay = !GameState.isDay;
-        foreach (Light Light in _dayLights)
+        foreach (Light light in daylights)
         {
-            Light.enabled = GameState.isDay;
+            light.enabled = GameState.isDay;
         }
-        foreach (Light Light in _nightLights)
+        foreach (Light light in nightlights)
         {
-            Light.enabled = !GameState.isDay;
+            light.enabled = !GameState.isDay;
         }
+        if (GameState.isDay)
+        {
+            nightSound.Stop();
+            daySound.Play();
+        }
+        else
+        {
+            daySound.Stop();
+            nightSound.Play();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        GameState.UnSubscribe(OnAmbientVolumeTrigger, "AmbientVolume");
+        GameState.UnSubscribe(OnMusicVolumeTrigger, "MusicVolume");
     }
 }

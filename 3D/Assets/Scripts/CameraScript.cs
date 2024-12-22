@@ -3,78 +3,91 @@ using UnityEngine.InputSystem;
 
 public class CameraScript : MonoBehaviour
 {
-    private Transform _character;
-    private InputAction _lookAction;
-    private Vector3 _cameraAngles, _cameraAngles0;
-    private Vector3 _r;
-    private const float SensitivityH = 5.0f;
-    private const float SensitivityV = -3.0f;
-    private const float MinFpvDistance = 0.9f;
-    private const float MaxFpvDistance = 9.0f;
-    private bool _isPos3;
+    private Transform character; 
+    private InputAction lookAction;
+    private Vector3 cameraAngles, cameraAngles0;
+    private Vector3 r;
+
+    [SerializeField]
+    private float minVerticalAngle;
+    [SerializeField]
+    private float maxVerticalAngle;
+    [SerializeField]
+    private float minVerticalAngleFPV;
+    [SerializeField]
+    private float maxVerticalAngleFPV;
+
+    private float minFpvDistance = 0.9f;
+    private float maxFpvDistance = 9.0f;
+    private bool isPos3;
 
     void Start()
     {
-        _lookAction = InputSystem.actions.FindAction("Look");
-        _cameraAngles0 = _cameraAngles = this.transform.eulerAngles;
-        _character = GameObject.Find("Character").transform;
-        _r = this.transform.position - _character.position;
-        _isPos3 = false;
+        lookAction = InputSystem.actions.FindAction("Look");
+        cameraAngles0 = cameraAngles = this.transform.eulerAngles;
+        character = GameObject.Find("Character").transform;
+        r = this.transform.position - character.position;
     }
 
     void Update()
     {
-        Vector2 Wheel = Input.mouseScrollDelta;
-        if(Wheel.y != 0)
+        Vector2 wheel = Input.mouseScrollDelta;
+        if (wheel.y != 0)
         {
-            if (_r.magnitude >= MaxFpvDistance)
+            if (r.magnitude >= maxFpvDistance)
             {
-                _isPos3 = true;
-
-                if (Wheel.y > 0)
+                isPos3 = true;
+                if (wheel.y > 0)
                 {
-                    _r *= 1 - Wheel.y / 10;
+                    r *= (1 - wheel.y / 10);
                 }
-                
-                GameState.isFpv = false;
             }
             else
             {
-                _isPos3 = false;
-
-                if(_r.magnitude >= MinFpvDistance)
+                isPos3 = false;
+                if (r.magnitude >= GameState.minFpvDistance)
                 {
-                    float Rr = _r.magnitude * (1 - Wheel.y / 10);
-                    if (Rr <= MinFpvDistance)
+                    float rr = r.magnitude * (1 - wheel.y / 10);
+                    if (rr <= GameState.minFpvDistance)
                     {
-                        _r *= 0.01f;
+                        r *= 0.01f;
+                        GameState.isFpv = true;
                     }
                     else
                     {
-                        _r *= (1 - Wheel.y / 10);
+                        r *= 1 - wheel.y / 10;
                     }
-                    
-                    GameState.isFpv = false;
                 }
                 else
                 {
-                    if(Wheel.y < 0)
+                    if (wheel.y < 0)
                     {
-                        _r *= 100f;
-                        GameState.isFpv = true;
+                        r = r.normalized * GameState.minFpvDistance;
+                        GameState.isFpv = false;
                     }
                 }
             }
         }
 
-        Vector2 LookValue = _lookAction.ReadValue<Vector2>();
-        if(LookValue != Vector2.zero)
+        if (!isPos3)
         {
-            _cameraAngles.x += LookValue.y * Time.deltaTime * SensitivityV;
-            _cameraAngles.y += LookValue.x * Time.deltaTime * SensitivityH;
-            this.transform.eulerAngles = _cameraAngles;
+            Vector2 lookValue = lookAction.ReadValue<Vector2>();
+            if (lookValue != Vector2.zero)
+            {
+                cameraAngles.x += lookValue.y * Time.deltaTime * GameState.lookSensitivityY;
+                cameraAngles.y += lookValue.x * Time.deltaTime * GameState.lookSensitivityX;
+                
+                cameraAngles.x = Mathf.Clamp(cameraAngles.x,
+                                            GameState.isFpv ? minVerticalAngleFPV : minVerticalAngle,
+                                            GameState.isFpv ? maxVerticalAngleFPV : maxVerticalAngle);
+                
+                this.transform.eulerAngles = cameraAngles;
+            }
+            this.transform.position = character.position +
+                Quaternion.Euler(
+                    cameraAngles.x - cameraAngles0.x,
+                    cameraAngles.y - cameraAngles0.y,
+                    0) * r;
         }
-        this.transform.position = _character.position + 
-            Quaternion.Euler(_cameraAngles.x - _cameraAngles0.x, _cameraAngles.y - _cameraAngles0.y, 0) * _r;
     }
 }

@@ -1,64 +1,84 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
-using TMPro;
 
 public class ToastScript : MonoBehaviour
 {
-    public static void ShowToast(string InitMessage, float? InitTimeout = null)
+    private static ToastScript instance;
+    private TMPro.TextMeshProUGUI toastTMP;
+    private float timeout = 2.0f;
+    private float leftTime;
+    private GameObject content;
+    private readonly Queue<ToastMessage> messages = new Queue<ToastMessage>();
+
+    public static void ShowToast(string message, float? timeout = null, string author = null)
     {
-        if (_instance._messages.Count > 0 && _instance._messages.Peek().message == InitMessage)
+        foreach (var m in instance.messages)
         {
-            return;
+            if (m.message == message && m.author == author)
+            {
+                return;
+            }
         }
 
-        _instance._messages.Enqueue(new ToastMessage
+        instance.messages.Enqueue(new ToastMessage
         {
-            message = InitMessage,
-            timeout = InitTimeout ?? Timeout
+            message = message,
+            timeout = timeout ?? instance.timeout,
+            author = author
         });
     }
 
-    private static ToastScript _instance;
-    private TextMeshProUGUI _toastTMP;
-    private const float Timeout = 5;
-    private float _leftTime;
-    private GameObject _content;
-    private readonly Queue<ToastMessage> _messages = new();
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void OnGameEvent(string eventName, object data)
     {
-        _instance = this;
-        _content = transform.Find("Content").gameObject;
-        _toastTMP = transform.Find("Content/ToastTMP").GetComponent<TextMeshProUGUI>();
-        _content.SetActive(false);
+        if( data is GameEvents.INotifiyer n)
+        {
+            ShowToast(n.message);
+        }
     }
 
-    // Update is called once per frame
+    void Start()
+    {
+        instance = this;
+        content = transform.Find("Content").gameObject;
+        toastTMP = transform.Find("Content/ToastTMP").GetComponent<TMPro.TextMeshProUGUI>();
+        content.SetActive(false);
+        GameState.Subscribe(OnGameEvent);
+    }
+
     void Update()
     {
-        if (_leftTime > 0)
+        if (leftTime > 0)
         {
-            _leftTime -= Time.deltaTime;
-            
-            if (_leftTime <= 0)
+            leftTime -= Time.deltaTime;
+            if (leftTime <= 0)
             {
-                _messages.Dequeue();
-                _content.SetActive(false);
+                messages.Dequeue();
+                content.SetActive(false);
             }
         }
-        else if (_messages.Count > 0)
+        else
         {
-            var M = _messages.Peek();
-            _toastTMP.text = M.message;
-            _leftTime = M.timeout;
-            _content.SetActive(true);
+            if (messages.Count > 0)
+            {
+                var m = messages.Peek();
+                toastTMP.text = !string.IsNullOrEmpty(m.author) ?
+                    $"{m.author}: {m.message}" : m.message;
+                leftTime = m.timeout;
+                content.SetActive(true);
+            }
         }
+    }
+
+    private void OnDestroy()
+    {
+        GameState.UnSubscribe(OnGameEvent);
     }
 
     private class ToastMessage
     {
         public string message { get; set; }
-        public float timeout { get; set; }
+        public float  timeout { get; set; }
+        public string author { get; set; }
     }
 }

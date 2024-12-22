@@ -4,8 +4,9 @@
 TagManager:
   serializedVersion: 3
   tags:
-  - DayLight
   - NightLight
+  - DayLight
+  - Battery
   layers:
   - Default
   - TransparentFX
